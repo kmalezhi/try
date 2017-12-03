@@ -18,29 +18,33 @@ class array_print
     private $level = 0; // Переменная необходима для рекурсивных вызовов метода form_array
     private $array_text = '';
 
-    public function __construct(array $array_to_print, bool $return_text = true, string $name = 'some_array') {
-        $this->array_text = $this->form_array($array_to_print, $return_text, $name);
+    public function __construct(array $array_to_print, string $name = 'some_array', string $tabs ='', bool $return_text = true) {
+        $this->array_text = $this->form_array($array_to_print, $return_text, $name, $tabs);
     }
     public function __toString()
     {
         return $this->array_text;
     }
-    private function form_array(array $var, bool $return, string $name){
-        $spaces  = self::SPACES;
+    private function form_array(array $var, bool $return, string $name, $base_tabs =''){
+        // Символ переноса строки
         $newline = self::NEWLINE;
-        $tabs    = $spaces;
+        // Настраиваем отступы
+        $spaces  = self::SPACES;
+        $tabs    = $base_tabs.$spaces;
         for ($i = 1; $i <= $this->level; $i++) {
             $tabs .= $spaces;
         }
+        // Выводим имя массива (раздела, если вложенный массив)
         if ($this->level === 0) {
-            $output = "\nstatic private $".$name.' = ['.$newline;
+            $output = "\n".$base_tabs."$".$name.' = ['.$newline;
         } else {
             $output = "'".$name."' => [". $newline;
         }
+
         foreach($var as $key => $value) {
             if (is_array($value)) {
                 $this->level++;
-                $value = $this->form_array($value,true, $key);
+                $value = $this->form_array($value,true, $key, $base_tabs);
                 $this->level--;
                 $output .= $tabs . $value . $tabs . '],'. $newline;
             } else {
@@ -48,7 +52,7 @@ class array_print
             }
         }
         if ($this->level === 0) {
-            $output .= '];';
+            $output .= $base_tabs.'];';
         }
         if ($return) {
             return $output;

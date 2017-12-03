@@ -7,7 +7,7 @@
  */
 namespace core\main;
 require      __DIR__.'/generate_mock.php';       use core\main\generate_mock as GM;
-require      '../supplementary/array_print.php'; use supplementary\array_print\array_print as SUP;
+require_once '../supplementary/array_print.php'; use supplementary\array_print\array_print as SUP;
 require_once 'mock_generator_constants.php'    ; use core\main\mock_generator_constants as CONSTANTS;
 require      'mock_description.php';             use core\main\mock_description as DESCRIPTION;
 
@@ -30,6 +30,13 @@ $codes = [
 ];
 
 $data =  json_decode('{
+    "ololo":{
+    "ololo1":"1",
+    "ololo2":{
+    "ololo3":"1"
+    }
+    },
+    
     "created_timestamp": 1509434175,
     "expired_timestamp": 1509520575,
     "mid": "1002089860",
@@ -47,8 +54,8 @@ $sum_table = $instance_of_generate->create_sum_table($data, $codes, CONSTANTS::T
 $description = (new DESCRIPTION($sum_table))->get_mock_description();
 echo $description;
 echo "\n\n";
-echo new SUP($sum_table, true, $name.'_sum_array');
-echo new SUP($codes, true, $name.'_code_array');
+echo new SUP($sum_table, "static private ".$name.'_sum_array');
+echo new SUP($codes, "static private ".$name.'_code_array');
 echo GM::generate_signature_validation_function_code($name);
 echo GM::generate_signature_creation_function_code($name);
 echo GM::generate_method_start_code($name);

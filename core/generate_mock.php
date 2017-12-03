@@ -3,10 +3,10 @@
 namespace core\main;
 
 require_once 'mock_generator_constants.php'; use core\main\mock_generator_constants as CONSTANTS;
-
+require_once '../supplementary/array_print.php'; use supplementary\array_print\array_print as ARRAY_PRINT;
 class generate_mock
 {
-    private $sum = 1000;
+    private $sum = 1000; // Хранит текущее значение суммы для генерации таблицы. Можно переопределить при обращении к классу
     private $sum_table = [];
     public function __construct($sum = false)
     {
@@ -15,34 +15,67 @@ class generate_mock
         }
     }
 
-    private function calculate_sum (){
+    /**
+     * Возвращает последующую сумму для генерации таблицы
+     * @return string - сумма в формате ХХХ.00 (minor = false) или ХХХ (minor = true)
+     */
+    private function calculate_sum ($minor = false){
         $this->sum++;
-        return (((string)$this->sum).'.00');
+        if ($minor) {
+            $sum = (string)$this->sum;
+        } else {
+            $sum = (((string)$this->sum).'.00');
+        }
+        return $sum;
     }
+
+    /**
+     * Подготовка имен параметров для генерации таблицы сумм
+     * Принцип работы:
+     *      Берет параметры из входного массива и сохраняет в выходной.
+     *      В случае вложенных массивов переобразует имена параметров следующим образом: "category1->category2->parameter"
+     *
+     * @param $inputArray       - данные, которые должен отправить мок, преобразованные к массиву
+     * @param string $prefix    - Используется только для рекурсивного вызова.
+     * @return array            - Массив имен параметров, необходимый для генерации таблицы сумм
+     */
+    private function prepare_parameters_list ($inputArray, $prefix = ''){
+        $prepared_list = [];
+        foreach ($inputArray as $category => $parameter) {
+            if (is_array($parameter)) {
+                $prefix_2 = $prefix."$category->";
+                $prepared_list = array_merge($prepared_list, $this->prepare_parameters_list($parameter, $prefix_2));
+            } else {
+                $prepared_list = array_merge($prepared_list, [$prefix.$category]);
+            }
+        }
+        return $prepared_list;
+    }
+
     private function fill_sum_table_rows(array $design,
                                          array $parameters_list,
                                          array $available_codes = []
     )
     {
-        foreach ($design as $CATEGORY => $action) {
+        foreach ($design as $category => $action) {
             if (array_key_exists('type', $action)) {
                 switch ($action['type']) {
                     case CONSTANTS::BASED_ON['static']:
-                        $this->sum_table [$CATEGORY] = $this->calculate_sum();
+                        $this->sum_table [$category] = $this->calculate_sum();
                         break;
                     case CONSTANTS::BASED_ON['http_codes']:
                         foreach (CONSTANTS::HTTP_CODES_TO_CHECK as $http_code) {
-                            $this->sum_table [$CATEGORY][$http_code] = $this->calculate_sum();
+                            $this->sum_table [$category][$http_code] = $this->calculate_sum();
                         }
                         break;
                     case CONSTANTS::BASED_ON['business']:
                         foreach ($available_codes as $code => $message) {
-                            $this->sum_table [$CATEGORY][$code] = $this->calculate_sum();
+                            $this->sum_table [$category][$code] = $this->calculate_sum();
                         }
                         break;
                     case CONSTANTS::BASED_ON['data']:
-                        foreach ($parameters_list as $parameter => $value) {
-                            $this->sum_table [$CATEGORY][$parameter] = $this->calculate_sum();
+                        foreach ($parameters_list as $parameter) {
+                            $this->sum_table [$category][$parameter] = $this->calculate_sum();
                         }
                         break;
                     default:
@@ -50,7 +83,7 @@ class generate_mock
                 }
             } else { // FIXME пока что большой костыль, сюда должна попасть только ветка со временем. Иначе все поломается
                 foreach ($action as $SUBCATEGORY => $subaction) {
-                    $this->sum_table [$CATEGORY][$SUBCATEGORY] = $this->calculate_sum();
+                    $this->sum_table [$category][$SUBCATEGORY] = $this->calculate_sum();
                 }
             }
         }
@@ -79,7 +112,7 @@ class generate_mock
                 break;
         }
 
-        $this->fill_sum_table_rows($design, $data, $available_codes);
+        $this->fill_sum_table_rows($design, $this->prepare_parameters_list($data), $available_codes);
         return $this->sum_table;
     }
 
@@ -178,13 +211,8 @@ class generate_mock
          
        /* FIXME Уточнить данные! 
         * FIXME Не забываем про сумму, валюту и id!
-        */
-         
-        \$data = [";
-        foreach ($request_data as $parameter => $value) {
-            $some_str .= "\n            '" . $parameter . "' => '".$value."',";
-        }
-        $some_str .= "\n        ];";
+        */";
+        $some_str .= new ARRAY_PRINT($request_data,"data", '        ');
         return $some_str;
     }
     public static function generate_invalid_value                      (string $sum_array){
