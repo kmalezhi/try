@@ -41,18 +41,18 @@ class mock_description
                 // В разделе несколько ситуаций, перебираем все, добавляем описания:
                 if (is_array($content)) {
                     foreach ($content as $field_name => $sum) {
-                        $str = "\n" . $sum . CONSTANTS::DELIMITER . $description_table[$category]['description'] . CONSTANTS::DELIMITER . $description_table[$category]['note'];
+                        $str = "\n" . $sum . CONSTANTS::DESCRIPTION_DELIMITER . $description_table[$category]['description'] . CONSTANTS::DESCRIPTION_DELIMITER . $description_table[$category]['note'];
                         $this->mock_description .= str_replace("REPLACE_ME", $field_name, $str); // Уточняем описание
                     }
                 // В разделе одна ситуация, записываем её описание:
                 } else {
                     $sum = $content;
-                    $this->mock_description .= "\n" . $sum . CONSTANTS::DELIMITER . $description_table[$category]['description'] . CONSTANTS::DELIMITER . $description_table[$category]['note'];
+                    $this->mock_description .= "\n" . $sum . CONSTANTS::DESCRIPTION_DELIMITER . $description_table[$category]['description'] . CONSTANTS::DESCRIPTION_DELIMITER . $description_table[$category]['note'];
                 }
             } else { // FIXME пока что большой костыль, сюда должна попасть только ветка со временем. Иначе все поломается
                      // FIXME переписать нафиг, как дойдут руки
                 foreach ($description_table[$category] as $subcategory => $subdescription) {
-                    $this->mock_description .= "\n" . $content[$subcategory] . CONSTANTS::DELIMITER . $subdescription['description'] . CONSTANTS::DELIMITER . $subdescription['note'];
+                    $this->mock_description .= "\n" . $content[$subcategory] . CONSTANTS::DESCRIPTION_DELIMITER . $subdescription['description'] . CONSTANTS::DESCRIPTION_DELIMITER . $subdescription['note'];
                 }
             }
         }

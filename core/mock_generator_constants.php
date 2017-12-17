@@ -1,6 +1,5 @@
 <?php
 /**
- * Created by PhpStorm.
  * User: Konstantin
  * Date: 26.11.2017
  * Time: 22:52
@@ -140,7 +139,7 @@ class mock_generator_constants
     /**
      * Разделитель, который будет использован в описании мока
      */
-    const DELIMITER = ' || ';
+    const DESCRIPTION_DELIMITER = ' || ';
     /**
      * Вспомогательные константы для генерации мока.
      */
@@ -150,4 +149,8 @@ class mock_generator_constants
         'data' => 2,
         'http_codes' => 3,
     ];
+    /**
+     * Разделитель для вложенных массивов в таблице сумм.
+     */
+    const SUM_TABLE_DELIMITER = '->';
 }
