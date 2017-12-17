@@ -6,10 +6,11 @@
  * Time: 23:19
  */
 namespace core\main;
-require      __DIR__.'/generate_mock.php';       use core\main\generate_mock as GM;
+require      'generate_mock.php';                use core\main\generate_mock as GM;
 require_once '../supplementary/array_print.php'; use supplementary\array_print\array_print as SUP;
 require_once 'mock_generator_constants.php'    ; use core\main\mock_generator_constants as CONSTANTS;
 require      'mock_description.php';             use core\main\mock_description as DESCRIPTION;
+require_once 'generate_sum_table.php';           use core\main\generate_sum_table as SUM_TABLE;
 
 $request_data = json_decode('{
 "redirect_url":"http:\/\/localhost\/rdp\/service\/test-suite\/T_redirection_hosted_single\/redirect_url",
@@ -47,33 +48,44 @@ $data =  json_decode('{
     "response_msg": "successful",
     "signature": "a55bb0dae264453221948b76b673494b5ed9b4b881d3062eb2dc32bf421d55bc6ece3263da374e920a47d9412ad154913cb836c35dd4e6f95ed548c89347d774"
 }', true);
+/*
+function ololo ($amount = '100', $data = [], $status_sum_array = ['123->345'=>'100']){
+        $nestingParametersString = array_search($amount,$status_sum_array);
+        if ($nestingParametersString) {
+            $nestingParameters = explode('->', $nestingParametersString);
+            switch (count($nestingParameters)){
+                case 1:
+                    $data[$nestingParameters[0]] = 'ILoveYou';//self::$invalid_string; // случайный текст;
+                    break;
+                case 2:
+                    $data[$nestingParameters[0]][$nestingParameters[1]] =  'ILoveYou';//self::$invalid_string; // случайный текст;
+                    break;
+                case 3:
+                    $data[$nestingParameters[0]][$nestingParameters[1]][$nestingParameters[2]] =  'ILoveYou';//self::$invalid_string; // случайный текст;
+                    break;
+                default:
+                    dye;
+                    break;
+            }
+        }
+        return $data;
+}
 
+print_r(ololo());
+*/
 $name = 'status';
-$instance_of_generate = new generate_mock();
-$sum_table = $instance_of_generate->create_sum_table($data, $codes, CONSTANTS::TYPE['STATUS']);
+$file = __DIR__.'/result.php';
+
+//file_put_contents($file,  GM::generate_invalid_value_nesting('self::$'.$name.'_sum_array'));
+
+
+$instanceOfSumTable = new SUM_TABLE();
+$instanceOfGenerateMock = new GM ($data, $name);
+$sum_table = $instanceOfSumTable->create_sum_table($data, CONSTANTS::TYPE['STATUS'], $codes);
 $description = (new DESCRIPTION($sum_table))->get_mock_description();
-echo $description;
-echo "\n\n";
-echo new SUP($sum_table, "static private ".$name.'_sum_array');
-echo new SUP($codes, "static private ".$name.'_code_array');
-echo GM::generate_signature_validation_function_code($name);
-echo GM::generate_signature_creation_function_code($name);
-echo GM::generate_method_start_code($name);
-echo GM::generate_validation_code($request_data);
-echo GM::generate_signature_validation_code($name);
-echo GM::generate_http_response_code('self::$'.$name.'_sum_array');
-echo GM::generate_invalid_sum('self::$'.$name.'_sum_array');
-echo GM::generate_invalid_currency('self::$'.$name.'_sum_array');
-echo GM::generate_data($data);
-echo GM::generate_invalid_value('self::$'.$name.'_sum_array');
-echo GM::generate_empty_value('self::$'.$name.'_sum_array');
-echo GM::generate_parameter_remove('self::$'.$name.'_sum_array');
-echo GM::generate_redundant_values('self::$'.$name.'_sum_array');
-echo GM::generate_business_codes('self::$'.$name.'_sum_array', 'self::$'.$name.'_code_array');
-echo GM::generate_signature_creation($name);
-echo GM::generate_delay('self::$'.$name.'_sum_array');
-echo GM::generate_response();
-echo GM::generate_method_end_code();
-
-
+file_put_contents($file, $description);
+file_put_contents($file, "\n\n", FILE_APPEND);
+file_put_contents($file,  new SUP($sum_table, "static private ".$name.'_sum_array'), FILE_APPEND);
+file_put_contents($file,  new SUP($codes, "static private ".$name.'_code_array'), FILE_APPEND);
+file_put_contents($file, $instanceOfGenerateMock->create_status_code(), FILE_APPEND);
 

@@ -4,132 +4,71 @@ namespace core\main;
 
 require_once 'mock_generator_constants.php'; use core\main\mock_generator_constants as CONSTANTS;
 require_once '../supplementary/array_print.php'; use supplementary\array_print\array_print as ARRAY_PRINT;
+
 class generate_mock
 {
-    private $sum = 1000; // Хранит текущее значение суммы для генерации таблицы. Можно переопределить при обращении к классу
-    private $sum_table = [];
-    public function __construct($sum = false)
-    {
-        if (($sum) AND is_integer($sum)) {
-            $this->sum = (string)$sum;
-        }
+    private $request_data =[];
+    private $name = 'some_name';
+    public function __construct(array $request_data, string $name) {
+        $this->request_data = $request_data;
+        $this->name = $name;
+    }
+    public function create_status_code () {
+        $sumArrayName = 'self::$'.$this->name.'_sum_array';
+        $codeArrayName = 'self::$'.$this->name.'_code_array';
+        $code  = '';
+        $code .= $this->generate_signature_validation_function_code($this->name);
+        $code .= $this->generate_signature_creation_function_code($this->name);
+        $code .= $this->generate_method_start_code($this->name);
+        $code .= $this->generate_validation_code($this->request_data);
+        $code .= $this->generate_signature_validation_code($this->name);
+        $code .= $this->generate_get_request_data();
+        $code .= $this->generate_set_amount();
+        $code .= $this->generate_http_response_code($sumArrayName);
+        $code .= $this->generate_invalid_sum($sumArrayName);
+        $code .= $this->generate_invalid_currency($sumArrayName);
+        $code .= $this->generate_data($this->request_data);
+        $code .= $this->generate_invalid_value_heading($sumArrayName);
+        $code .= $this->generate_invalid_value_nesting($sumArrayName);
+        $code .= $this->generate_empty_value_heading();
+        $code .= $this->generate_empty_value($sumArrayName);
+        $code .= $this->generate_parameter_remove($sumArrayName);
+        $code .= $this->generate_redundant_values($sumArrayName);
+        $code .= $this->generate_business_codes($sumArrayName, $codeArrayName);
+        $code .= $this->generate_signature_creation($this->name);
+        $code .= $this->generate_delay($sumArrayName);
+        $code .= $this->generate_response();
+        $code .= $this->generate_method_end_code();
+        return $code;
     }
 
-    /**
-     * Возвращает последующую сумму для генерации таблицы
-     * @return string - сумма в формате ХХХ.00 (minor = false) или ХХХ (minor = true)
-     */
-    private function calculate_sum ($minor = false){
-        $this->sum++;
-        if ($minor) {
-            $sum = (string)$this->sum;
-        } else {
-            $sum = (((string)$this->sum).'.00');
-        }
-        return $sum;
-    }
-
-    /**
-     * Подготовка имен параметров для генерации таблицы сумм
-     * Принцип работы:
-     *      Берет параметры из входного массива и сохраняет в выходной.
-     *      В случае вложенных массивов переобразует имена параметров следующим образом: "category1->category2->parameter"
-     *
-     * @param $inputArray       - данные, которые должен отправить мок, преобразованные к массиву
-     * @param string $prefix    - Используется только для рекурсивного вызова.
-     * @return array            - Массив имен параметров, необходимый для генерации таблицы сумм
-     */
-    private function prepare_parameters_list ($inputArray, $prefix = ''){
-        $prepared_list = [];
-        foreach ($inputArray as $category => $parameter) {
-            if (is_array($parameter)) {
-                $prefix_2 = $prefix."$category->";
-                $prepared_list = array_merge($prepared_list, $this->prepare_parameters_list($parameter, $prefix_2));
-            } else {
-                $prepared_list = array_merge($prepared_list, [$prefix.$category]);
-            }
-        }
-        return $prepared_list;
-    }
-
-    private function fill_sum_table_rows(array $design,
-                                         array $parameters_list,
-                                         array $available_codes = []
-    )
-    {
-        foreach ($design as $category => $action) {
-            if (array_key_exists('type', $action)) {
-                switch ($action['type']) {
-                    case CONSTANTS::BASED_ON['static']:
-                        $this->sum_table [$category] = $this->calculate_sum();
-                        break;
-                    case CONSTANTS::BASED_ON['http_codes']:
-                        foreach (CONSTANTS::HTTP_CODES_TO_CHECK as $http_code) {
-                            $this->sum_table [$category][$http_code] = $this->calculate_sum();
-                        }
-                        break;
-                    case CONSTANTS::BASED_ON['business']:
-                        foreach ($available_codes as $code => $message) {
-                            $this->sum_table [$category][$code] = $this->calculate_sum();
-                        }
-                        break;
-                    case CONSTANTS::BASED_ON['data']:
-                        foreach ($parameters_list as $parameter) {
-                            $this->sum_table [$category][$parameter] = $this->calculate_sum();
-                        }
-                        break;
-                    default:
-                        die (__FUNCTION__.__LINE__.' Что-то пошло не так...');
-                }
-            } else { // FIXME пока что большой костыль, сюда должна попасть только ветка со временем. Иначе все поломается
-                foreach ($action as $SUBCATEGORY => $subaction) {
-                    $this->sum_table [$category][$SUBCATEGORY] = $this->calculate_sum();
-                }
-            }
-        }
-    }
-
-    public function create_sum_table(array $data,
-                                     array $available_codes = [],
-                                     string $type) {
-
-        switch ($type) {
-            case CONSTANTS::TYPE['RESPONSE']:
-                $design = array_merge(CONSTANTS::COMMON_CATEGORIES,
-                                      CONSTANTS::RESPONSE_ADDITIONAL_CATEGORIES);
-                break;
-            case CONSTANTS::TYPE['STATUS']:
-                $design = array_merge(CONSTANTS::COMMON_CATEGORIES,
-                                      CONSTANTS::RESPONSE_ADDITIONAL_CATEGORIES,
-                                          CONSTANTS::STATUS_ADDITIONAL_CATEGORIES);
-                break;
-            case CONSTANTS::TYPE['CALLBACK']:
-                $design = array_merge(CONSTANTS::COMMON_CATEGORIES,
-                                      CONSTANTS::CALLBACK_ADDITIONAL_CATEGORIES);
-                break;
-            default:
-                die (__FUNCTION__.__LINE__.' Что-то пошло не так...');
-                break;
-        }
-
-        $this->fill_sum_table_rows($design, $this->prepare_parameters_list($data), $available_codes);
-        return $this->sum_table;
-    }
-
-    public static function generate_method_start_code                  (string $name)
-    {
-        $some_str = "\n    static function $name (MockHelper \$helper) {
+    private function generate_method_start_code                  (string $name) {
+        return "\n    static function $name (MockHelper \$helper) {
         /* FIXME Эту секцию необходимо дописать вручную! */
         \$content  = json_decode(\$helper->getContent(),1); // Этот код только для json запросов!
-        \$amount   = \$content['Amount'];   // FIXME Указать поле, содержащее сумму!
-        \$currency = \$content['Currency']; // FIXME Указать поле, содержащее валюту!
-        \$id       = time().microtime();
-        \$helper->setRedisEx(\$id.'$name',\$content); // Сохраняем пришедший запрос для других операций
         ";
-        return $some_str;
     }
-    public static function generate_validation_code                    (array $request_data)
-    {
+    private function generate_id_and_dataSave_generation_code    (){
+        return "
+        \$id       = time().microtime();
+        \$helper->setRedisEx(\$id,\$content); // Сохраняем пришедший запрос для других операций";
+    }
+    private function generate_get_request_data (){
+        return "\n
+        /****************************************************
+         * Достаем пришедший первоначальный запрос операции *
+         ****************************************************/
+        \$id = \$content['ID'];   // FIXME Указать поле, содержащее id!
+        \$requestData = \$helper->getRedisEx(\$id);";
+    }
+    private function generate_set_amount (){
+        return "\n
+        /**************************************
+         * Сумма (для управления логикой мока *
+         **************************************/
+        \$amount   = \$content['Amount'];   // FIXME Указать поле, содержащее сумму!";
+    }
+    private function generate_validation_code                    (array $request_data) {
         $some_str ="
         /********************************
          * Валидация пришедшего запроса *
@@ -150,7 +89,7 @@ class generate_mock
         }";
         return $some_str;
     }
-    public static function generate_signature_validation_function_code (string $name){
+    private function generate_signature_validation_function_code (string $name){
         $some_string = "
     /* FIXME! Эту функцию нужно переписать вручную */
     static private function ".$name."_signature_validation (array \$content){
@@ -161,7 +100,7 @@ class generate_mock
         }";
         return $some_string;
     }
-    public static function generate_signature_validation_code          (string $name){
+    private function generate_signature_validation_code          (string $name){
         $some_string = "
        /*********************
         * Валидация подписи *
@@ -172,7 +111,7 @@ class generate_mock
         }";
         return $some_string;
     }
-    public static function generate_http_response_code                 (string $sum_array){
+    private function generate_http_response_code                 (string $sum_array){
         $string ="       
        /************************************************
         * Ответ с http кодом ошибки (на основе Суммы) *
@@ -183,7 +122,7 @@ class generate_mock
         };";
         return $string;
     }
-    public static function generate_invalid_sum                        (string $sum_array){
+    private function generate_invalid_sum                        (string $sum_array){
     $some_str = "
        /**************************************
         * Неверная суммма (на основе Amount) *
@@ -193,7 +132,7 @@ class generate_mock
         }";
     return $some_str;
 }
-    public static function generate_invalid_currency                   (string $sum_array){
+    private function generate_invalid_currency                   (string $sum_array){
         $some_str = "
        /**************************************
         * Неверная суммма (на основе Amount) *
@@ -203,7 +142,7 @@ class generate_mock
         }";
         return $some_str;
     }
-    public static function generate_data                               (array $request_data) {
+    private function generate_data                               (array $request_data) {
         $some_str = "
        /*******************
         * Формируем ответ *
@@ -215,29 +154,62 @@ class generate_mock
         $some_str .= new ARRAY_PRINT($request_data,"data", '        ');
         return $some_str;
     }
-    public static function generate_invalid_value                      (string $sum_array){
-        $some_str = "
+    private function generate_invalid_value_heading              (){
+        return "
         /****************************************
          * Неверные значения (на основе Amount) *
-         * **************************************/
-        if (in_array(\$amount,".$sum_array."['invalid_parameter'])) {
-            \$parameter = array_flip(".$sum_array."['invalid_parameter']);
+         * **************************************/";    
+    }
+    private function generate_invalid_value_1_level              (string $sumArrayName){
+        /* Старая реализация
+        $someStr .= "
+        if (in_array(\$amount,".$sumArrayName."['invalid_parameter'])) {
+            \$parameter = array_flip(".$sumArrayName."['invalid_parameter']);
             \$data [\$parameter[\$amount]] = self::\$invalid_string; // случайный текст
         }";
-        return $some_str;
+        */
+        $someStr .= "
+        if (\$parameterName = array_search(\$amount,".$sumArrayName."['invalid_parameter'])) {
+            \$data [\$parameterName] = self::\$invalid_string; // случайный текст
+        }";
+        return $someStr;
     }
-    public static function generate_empty_value                        (string $sum_array){
-        $some_str = "
+    private function generate_invalid_value_nesting              (string $sumArrayName){
+        $someStr = "
+        if (\$nestingParametersString = array_search(\$amount,".$sumArrayName."['invalid_parameter'])) {
+            \$nestingParameters = explode('".CONSTANTS::SUM_TABLE_DELIMITER."', \$nestingParametersString);
+            switch (count(\$nestingParameters)){
+                case 1:
+                    \$data[\$nestingParameters[0]] = self::\$invalid_string; // случайный текст;
+                    break;
+                case 2:
+                    \$data[\$nestingParameters[0]][\$nestingParameters[1]] = self::\$invalid_string; // случайный текст;
+                    break;
+                case 3:
+                    \$data[\$nestingParameters[0]][\$nestingParameters[1]][\$nestingParameters[2]] = self::\$invalid_string; // случайный текст;
+                    break;
+                default:
+                    dye;
+                    break;
+            }
+        }";
+        return $someStr;
+    }
+    private function generate_empty_value_heading                (){
+       return "
        /**********************************
         * Пустое поле (на основе Amount) *
-        **********************************/
+        **********************************/";
+    }
+    private function generate_empty_value                        (string $sum_array){
+        $some_str = "
         if (in_array(\$amount,".$sum_array."['empty_parameter'])) {
             \$parameter = array_flip(".$sum_array."['empty_parameter']);
             \$data [\$parameter[\$amount]] = ''; // пустое поле
         }";
         return $some_str;
     }
-    public static function generate_parameter_remove                   (string $sum_array){
+    private function generate_parameter_remove                   (string $sum_array){
         $some_str = "
        /***********************************
         * Удаляем поле (на основе Amount) *
@@ -248,7 +220,7 @@ class generate_mock
         }";
         return $some_str;
     }
-    public static function generate_redundant_values                   (string $sum_array){
+    private function generate_redundant_values                   (string $sum_array){
     $some_str = "
         /***************************************
         * Лишние параметры (на основе Amount) *
@@ -259,7 +231,7 @@ class generate_mock
         }";
     return $some_str;
 }
-    public static function generate_business_codes                     (string $sum_array, string $code_array = ''){
+    private function generate_business_codes                     (string $sum_array, string $code_array = ''){
         $some_str = "
         /**********************************
          * Бизнес коды (на основе Amount) *
@@ -277,7 +249,7 @@ class generate_mock
         }";
         return $some_str;
     }
-    public static function generate_signature_creation_function_code   (string $name){
+    private function generate_signature_creation_function_code   (string $name){
         $some_string = "
     /* FIXME! Эту функцию нужно переписать вручную */
     static private function ".$name."_signature_generation (array \$content){
@@ -288,7 +260,7 @@ class generate_mock
         }";
         return $some_string;
     }
-    public static function generate_signature_creation                 (string $name){
+    private function generate_signature_creation                 (string $name){
         $some_str = "
         /**********************
          * Генерируем подпись *
@@ -297,7 +269,7 @@ class generate_mock
         \$data['УКАЖИТЕ ИМЯ ПАРАМЕТРА С ПОДПИСЬЮ']= self::".$name."_signature_generation(\$data);";
         return $some_str;
     }
-    public static function generate_delay                              (string $sum_array){
+    private function generate_delay                              (string $sum_array){
         $some_str = "
        /**************************************
         * Задержка ответа (на основе Amount) *
@@ -308,7 +280,7 @@ class generate_mock
         }";
         return $some_str;
     }
-    public static function generate_response                           (){
+    private function generate_response                           (){
         $some_str = "
         /********************
          * Синхронный ответ *
@@ -316,7 +288,7 @@ class generate_mock
         \$helper->makeResponse(json_encode(\$data));";
         return $some_str;
     }
-    public static function generate_method_end_code                    (){
+    private function generate_method_end_code                    (){
         return "\n    }";
     }
 
